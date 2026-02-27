@@ -202,11 +202,11 @@ export function HomeForm() {
           />
 
           {isCheckingName && (
-            <p className="text-gray-500 pl-1">Checking availability…</p>
+            <p className="text-gray-500">Checking availability…</p>
           )}
 
           {nameError && (
-            <p className="text-red-400 pl-1">{nameError}</p>
+            <p className="text-red-400">{nameError}</p>
           )}
 
           {step === "create-password" && (
@@ -222,11 +222,11 @@ export function HomeForm() {
           )}
 
           {createState?.error && step === "create-name" && (
-            <p className="text-red-400 pl-1">{createState.error}</p>
+            <p className="text-red-400">{createState.error}</p>
           )}
 
           {createPending && (
-            <p className="text-gray-500 pl-1">Creating room…</p>
+            <p className="text-gray-500">Creating room…</p>
           )}
 
           <p className="text-gray-600 pt-2 text-md">Esc to go back</p>
@@ -260,11 +260,11 @@ export function HomeForm() {
           )}
 
           {joinState?.error && (
-            <p className="text-red-400 pl-1">{joinState.error}</p>
+            <p className="text-red-400">{joinState.error}</p>
           )}
 
           {joinPending && (
-            <p className="text-gray-500 pl-1">Joining room___</p>
+            <p className="text-gray-500">Joining room___</p>
           )}
 
           <p className="text-gray-600 pt-1 text-md">Esc to go back</p>
