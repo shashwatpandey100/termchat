@@ -37,7 +37,7 @@ export function TerminalInput({
 
   return (
     <div className="flex items-center cursor-text" onClick={() => ref.current?.focus()}>
-      <span className={promptClassName || "text-gray-200 text-sm"}>
+      <span className={promptClassName || "text-gray-200 text-sm mr-[4px]"}>
         {prompt}
       </span>
       <span className="text-gray-200 text-sm">

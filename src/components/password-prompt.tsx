@@ -57,6 +57,7 @@ export function PasswordPrompt({
             </p>
           )}
 
+          <div className="-mt-6">
           {loading ? (
             <p className="text-gray-500">Authenticating...</p>
           ) : (
@@ -64,11 +65,12 @@ export function PasswordPrompt({
               value={password}
               onChange={setPassword}
               onSubmit={handleSubmit}
-              prompt="Password:&nbsp;"
+              prompt="Password:"
               type="password"
               autoFocus
             />
           )}
+          </div>
         </div>
       </TerminalWindow>
     </main>

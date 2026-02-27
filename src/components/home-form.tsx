@@ -214,7 +214,7 @@ export function HomeForm() {
               value={password}
               onChange={setPassword}
               onSubmit={handleCreatePassword}
-              prompt="Password:   "
+              prompt="Password:"
               type="password"
               disabled={isPending}
               autoFocus
@@ -242,7 +242,7 @@ export function HomeForm() {
             value={name}
             onChange={setName}
             onSubmit={handleJoinName}
-            prompt="Room name:  "
+            prompt="Room name:"
             disabled={isPending || step === "join-password"}
             autoFocus={step === "join-name"}
           />
@@ -252,7 +252,7 @@ export function HomeForm() {
               value={password}
               onChange={setPassword}
               onSubmit={handleJoinPassword}
-              prompt="Password:   "
+              prompt="Password:"
               type="password"
               disabled={isPending}
               autoFocus

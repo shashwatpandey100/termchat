@@ -280,7 +280,7 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
             <p className="text-gray-200">$ join --room &quot;{roomName}&quot;</p>
             <p className="text-gray-200">Authenticated successfully.</p>
             <p>&nbsp;</p>
-            <TerminalInput value={nicknameInput} onChange={setNicknameInput} onSubmit={handleNicknameSubmit} prompt="Enter nickname:&nbsp;" autoFocus maxLength={20} />
+            <TerminalInput value={nicknameInput} onChange={setNicknameInput} onSubmit={handleNicknameSubmit} prompt="Enter nickname:" autoFocus maxLength={20} />
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0 cursor-text" onClick={handleTerminalClick}>
