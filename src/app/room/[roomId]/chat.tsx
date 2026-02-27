@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { getSocket } from "@/lib/socket";
+import { getAblyClient } from "@/lib/ably-client";
 import { TerminalWindow } from "@/components/terminal-window";
 import { TerminalInput } from "@/components/terminal-input";
 import type { Message } from "@/db/schema";
+import type Ably from "ably";
 
 interface SystemMessage {
   type: "system";
@@ -69,31 +70,62 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
   useEffect(() => {
     if (!nickname) return;
 
-    const socket = getSocket();
-    socket.connect();
+    const ably = getAblyClient();
+    let channel: Ably.RealtimeChannel;
+    let cancelled = false;
 
-    socket.on("connect", () => {
+    const setup = async () => {
+      ably.connect();
+
+      await new Promise<void>((resolve) => ably.connection.once("connected", () => resolve()));
+      if (cancelled) return;
+
       setConnected(true);
-      socket.emit("join-room", { roomId, senderName: nickname });
-    });
+      channel = ably.channels.get(`room:${roomId}`);
 
-    socket.on("disconnect", () => {
-      setConnected(false);
-    });
+      // Buffer messages that arrive while history is loading to avoid gaps
+      const buffered: Message[] = [];
+      let historyLoaded = false;
 
-    socket.on("message-history", (messages) => {
-      setEntries(messages.map((m) => ({ ...m, type: "message" as const })));
-    });
+      channel.subscribe("new-message", (msg: Ably.Message) => {
+        if (!historyLoaded) {
+          buffered.push(msg.data as Message);
+          return;
+        }
+        setEntries((prev) => [...prev, { ...(msg.data as Message), type: "message" }]);
+      });
 
-    socket.on("new-message", (message) => {
-      setEntries((prev) => [...prev, { ...message, type: "message" }]);
-    });
+      const res = await fetch("/api/messages/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, senderName: nickname }),
+      });
+      const { history } = await res.json();
 
-    // Join/leave events are now persisted to DB and arrive via "new-message"
+      if (cancelled) return;
+
+      historyLoaded = true;
+      setEntries([
+        ...history.map((m: Message) => ({ ...m, type: "message" as const })),
+        ...buffered.map((m: Message) => ({ ...m, type: "message" as const })),
+      ]);
+    };
+
+    setup();
+
+    ably.connection.on("disconnected", () => setConnected(false));
+    ably.connection.on("suspended", () => setConnected(false));
 
     return () => {
-      socket.disconnect();
-      socket.removeAllListeners();
+      cancelled = true;
+      navigator.sendBeacon(
+        "/api/messages/leave",
+        new Blob([JSON.stringify({ roomId, senderName: nickname })], {
+          type: "application/json",
+        })
+      );
+      channel?.unsubscribe();
+      ably.close();
     };
   }, [nickname, roomId]);
 
@@ -118,18 +150,24 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
 
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
-      // Remove the "Uploading..." message
       setEntries((prev) => prev.filter((e) => !("id" in e && e.id === sysId)));
 
-      const socket = getSocket();
-      socket.emit("send-message", {
-        roomId,
-        senderName: nickname,
-        content: file.name,
-        fileUrl: data.url,
+      await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          senderName: nickname,
+          content: file.name,
+          fileUrl: data.url,
+        }),
       });
     } catch {
-      setEntries((prev) => prev.map((e) => ("id" in e && e.id === sysId ? { ...e, content: `Upload failed: ${file.name}` } : e)));
+      setEntries((prev) =>
+        prev.map((e) =>
+          "id" in e && e.id === sysId ? { ...e, content: `Upload failed: ${file.name}` } : e
+        )
+      );
     }
   }
 
@@ -171,7 +209,8 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
         {
           type: "system",
           id: `sys-${Date.now()}-help`,
-          content: "/upload — send a file  |  /copy — copy room link  |  /clear — clear screen  |  /close — close preview  |  /help — show commands",
+          content:
+            "/upload — send a file  |  /copy — copy room link  |  /clear — clear screen  |  /close — close preview  |  /help — show commands",
           createdAt: new Date(),
         },
       ]);
@@ -181,7 +220,7 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
     return false;
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!input.trim()) return;
 
     if (handleCommand(input)) {
@@ -191,11 +230,14 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
 
     if (!connected) return;
 
-    const socket = getSocket();
-    socket.emit("send-message", {
-      roomId,
-      senderName: nickname,
-      content: input.trim(),
+    await fetch("/api/messages/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId,
+        senderName: nickname,
+        content: input.trim(),
+      }),
     });
     setInput("");
   }
@@ -280,7 +322,14 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
             <p className="text-gray-200">$ join --room &quot;{roomName}&quot;</p>
             <p className="text-gray-200">Authenticated successfully.</p>
             <p>&nbsp;</p>
-            <TerminalInput value={nicknameInput} onChange={setNicknameInput} onSubmit={handleNicknameSubmit} prompt="Enter nickname:" autoFocus maxLength={20} />
+            <TerminalInput
+              value={nicknameInput}
+              onChange={setNicknameInput}
+              onSubmit={handleNicknameSubmit}
+              prompt="Enter nickname:"
+              autoFocus
+              maxLength={20}
+            />
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0 cursor-text" onClick={handleTerminalClick}>
@@ -308,7 +357,10 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
                   )}
                 </div>
                 <div className="px-4 py-1 text-gray-500 text-xs">{preview.name}</div>
-                <div className="px-4 py-2 border-t border-white/5 shrink-0 cursor-pointer" onClick={() => setPreview(null)}>
+                <div
+                  className="px-4 py-2 border-t border-white/5 shrink-0 cursor-pointer"
+                  onClick={() => setPreview(null)}
+                >
                   <div className="flex items-center">
                     <span className="text-gray-500 text-sm">press enter or click to close&nbsp;</span>
                     <span className="inline-block w-[0.6em] h-[1.1em] bg-white/90 cursor-blink" />
@@ -329,7 +381,11 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
             {/* Messages — hidden when preview is open */}
             {!preview && (
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-0.5 min-h-0">
-                <p className="text-gray-500 text-xs mb-1">{connected ? `Connected to ${roomName} as ${nickname}. Type /help for commands.` : "Reconnecting..."}</p>
+                <p className="text-gray-500 text-xs mb-1">
+                  {connected
+                    ? `Connected to ${roomName} as ${nickname}. Type /help for commands.`
+                    : "Reconnecting..."}
+                </p>
 
                 {entries.map((entry) => {
                   if (entry.type === "system") {
@@ -344,7 +400,6 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
 
                   const msg = entry as Message;
 
-                  // System messages from DB (join/leave events)
                   if (msg.senderName === "[system]") {
                     return (
                       <p key={msg.id} className="text-gray-500 text-xs">
@@ -360,7 +415,9 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
                     <div key={msg.id} className="text-sm">
                       <span className="text-gray-600 text-xs">{formatTime(msg.createdAt)}</span>
                       {"  "}
-                      <span className={isOwn ? "text-terminal-amber" : "text-terminal-cyan"}>{msg.senderName}</span>
+                      <span className={isOwn ? "text-terminal-amber" : "text-terminal-cyan"}>
+                        {msg.senderName}
+                      </span>
                       <span className="text-gray-500"> &gt; </span>
                       {renderMessageContent(msg)}
                     </div>
@@ -368,7 +425,16 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
                 })}
 
                 {/* Input line — inline as last line of terminal */}
-                <TerminalInput value={input} onChange={setInput} onSubmit={handleSend} prompt={`${nickname}>\u00a0`} promptClassName="text-terminal-green text-sm" disabled={!connected} autoFocus inputRef={inputRef} />
+                <TerminalInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSend}
+                  prompt={`${nickname}>\u00a0`}
+                  promptClassName="text-terminal-green text-sm"
+                  disabled={!connected}
+                  autoFocus
+                  inputRef={inputRef}
+                />
 
                 <div ref={messagesEndRef} />
               </div>
