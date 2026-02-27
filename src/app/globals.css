@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-terminal-green: #39ff14;
+  --color-terminal-dim: #1a8a0e;
+  --color-terminal-amber: #ffb800;
+  --color-terminal-cyan: #00e5ff;
+  --color-terminal-red: #ff3e3e;
+  --color-terminal-bg: #0d0f14;
+  --color-terminal-surface: #13161d;
+  --color-terminal-pink: #ff79c6;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, #0f0c29 0%, #3b235a 40%, #302b63 70%, #24243e 100%);
+  min-height: 100vh;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  color: #c9d1d9;
+}
+
+/* Scrollbar — nearly invisible */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+/* Blinking cursor */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1.25s step-end infinite;
+}
+
+/* Glow effect for text */
+.text-glow {
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+}
+
+/* Gradient ASCII art */
+.ascii-gradient {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #e0e0ff 30%,
+    #a8b4ff 60%,
+    #7c8aff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(168, 180, 255, 0.3));
 }
