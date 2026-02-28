@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 
 export function TerminalInput({
   value,
@@ -28,22 +28,50 @@ export function TerminalInput({
   const localRef = useRef<HTMLInputElement>(null);
   const ref = inputRef || localRef;
 
-  // Auto-focus on mount when autoFocus is set
+  const moveCursorToEnd = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    try {
+      el.setSelectionRange(el.value.length, el.value.length);
+    } catch {
+      // setSelectionRange not supported on password inputs in some browsers
+    }
+  }, [ref]);
+
+  // Only sync the DOM input when the parent explicitly clears it (value → "").
+  // We do NOT sync on every keystroke — setting el.value from JS resets the
+  // cursor to position 0 on mobile, which is the root cause of reversed typing.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (value === "" && el.value !== "") {
+      el.value = "";
+    }
+  }, [value, ref]);
+
+  // Auto-focus on mount
   useEffect(() => {
     if (autoFocus && !disabled) {
       ref.current?.focus();
+      moveCursorToEnd();
     }
-  }, [autoFocus, disabled, ref]);
+  }, [autoFocus, disabled, ref, moveCursorToEnd]);
 
   return (
-    <div className="flex items-center cursor-text" onClick={() => ref.current?.focus()}>
+    <div
+      className="flex items-center cursor-text"
+      onClick={() => {
+        ref.current?.focus();
+        moveCursorToEnd();
+      }}
+    >
       <span className={promptClassName || "text-gray-200 text-sm mr-[4px]"}>
         {prompt}
       </span>
       <span className="text-gray-200 text-sm">
         {type === "password" ? "\u2022".repeat(value.length) : value}
       </span>
-      {/* Cursor: always blinks when active */}
+      {/* Cursor blink */}
       <span
         className={`inline-block w-[0.5em] h-[1.1em] bg-white/70 ml-[2px] ${
           disabled ? "opacity-0" : "cursor-blink"
@@ -52,10 +80,21 @@ export function TerminalInput({
       <input
         ref={ref}
         type={type}
-        value={value}
+        // Uncontrolled — no value prop. The browser owns cursor position natively.
+        // A controlled input (value={value}) causes React to call el.value = x
+        // after every render, which resets the mobile cursor to 0 → reversed typing.
+        defaultValue=""
         onChange={(e) => onChange(e.target.value)}
+        onFocus={moveCursorToEnd}
         onBlur={(e) => {
-          // Terminal inputs stay focused — refocus unless another input/link took over
+          // On touch devices, NEVER force-refocus. The soft keyboard fires a
+          // transient blur on the hidden input during every keystroke transition.
+          // Our focus() + moveCursorToEnd() in a setTimeout races with the next
+          // character insertion: focus() resets cursor to 0, the next key lands
+          // there, producing reversed text. On mobile, users tap to focus; they
+          // don't need the always-focused terminal illusion.
+          if (navigator.maxTouchPoints > 0) return;
+
           const related = e.relatedTarget as HTMLElement | null;
           if (
             related?.tagName === "INPUT" ||
@@ -66,7 +105,10 @@ export function TerminalInput({
             return;
           }
           setTimeout(() => {
-            if (!disabled && ref.current) ref.current.focus();
+            if (!disabled && ref.current) {
+              ref.current.focus();
+              moveCursorToEnd();
+            }
           }, 0);
         }}
         onKeyDown={(e) => {
@@ -83,7 +125,7 @@ export function TerminalInput({
         autoCapitalize="off"
         spellCheck={false}
         data-form-type="other"
-        className="absolute opacity-0 w-0 h-0"
+        className="absolute opacity-0 w-1 h-1 overflow-hidden"
         tabIndex={-1}
       />
     </div>
