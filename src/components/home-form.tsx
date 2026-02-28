@@ -166,7 +166,18 @@ export function HomeForm() {
         >
           <p className="text-gray-400 mb-3">Select an option:</p>
           {MENU_OPTIONS.map((opt, i) => (
-            <div key={opt} className="flex items-center gap-2">
+            <div
+              key={opt}
+              className="flex items-center gap-2 cursor-pointer select-none py-1"
+              onClick={() => {
+                setMenuIndex(i);
+                setNameError(null);
+                setName("");
+                setPassword("");
+                if (i === 0) setStep("create-name");
+                else setStep("join-name");
+              }}
+            >
               <span className="w-3 text-terminal-green">
                 {i === menuIndex ? ">" : " "}
               </span>
@@ -229,7 +240,18 @@ export function HomeForm() {
             <p className="text-gray-500">Creating room…</p>
           )}
 
-          <p className="text-gray-600 pt-2 text-md">Esc to go back</p>
+          <p
+            className="text-gray-600 pt-2 text-md cursor-pointer select-none hover:text-gray-400"
+            onClick={() => {
+              setName("");
+              setPassword("");
+              setNameError(null);
+              if (step === "create-password") setStep("create-name");
+              else setStep("menu");
+            }}
+          >
+            ← back
+          </p>
         </div>
       )}
 
@@ -267,7 +289,17 @@ export function HomeForm() {
             <p className="text-gray-500">Joining room___</p>
           )}
 
-          <p className="text-gray-600 pt-1 text-md">Esc to go back</p>
+          <p
+            className="text-gray-600 pt-1 text-md cursor-pointer select-none hover:text-gray-400"
+            onClick={() => {
+              setName("");
+              setPassword("");
+              if (step === "join-password") setStep("join-name");
+              else setStep("menu");
+            }}
+          >
+            ← back
+          </p>
         </div>
       )}
     </div>

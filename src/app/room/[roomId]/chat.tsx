@@ -77,7 +77,11 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
     const setup = async () => {
       ably.connect();
 
-      await new Promise<void>((resolve) => ably.connection.once("connected", () => resolve()));
+      await new Promise<void>((resolve, reject) => {
+        if (ably.connection.state === "connected") { resolve(); return; }
+        ably.connection.once("connected", () => resolve());
+        ably.connection.once("failed", () => reject(new Error("Ably connection failed — check ABLY_API_KEY")));
+      });
       if (cancelled) return;
 
       setConnected(true);
@@ -111,7 +115,7 @@ export function Chat({ roomId, roomName }: { roomId: string; roomName: string })
       ]);
     };
 
-    setup();
+    setup().catch((err) => console.error("[chat]", err));
 
     ably.connection.on("disconnected", () => setConnected(false));
     ably.connection.on("suspended", () => setConnected(false));

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { verifyPassword } from "@/actions/verify-password";
 import { TerminalWindow } from "./terminal-window";
 import { TerminalInput } from "./terminal-input";
@@ -16,7 +15,6 @@ export function PasswordPrompt({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   async function handleSubmit() {
     setLoading(true);
@@ -27,7 +25,10 @@ export function PasswordPrompt({
       setError(result.error);
       setLoading(false);
     } else {
-      router.refresh();
+      // Hard reload so the browser sends the newly set cookie with the request.
+      // router.refresh() is unreliable on mobile — it doesn't always include
+      // cookies set during the preceding Server Action.
+      window.location.reload();
     }
   }
 
@@ -52,7 +53,7 @@ export function PasswordPrompt({
           <p>&nbsp;</p>
 
           {error && (
-            <p className="text-terminal-red">
+            <p className="text-terminal-red mt-4">
               Authentication failed. Try again.
             </p>
           )}
